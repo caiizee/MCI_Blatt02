@@ -1,0 +1,297 @@
+<html>
+
+<head>
+    <title>Human Capabilities - Reaction test</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 id="title">User Study: Decision Reaction Time </h1>
+    <h2 id="instruction">Press space to start!</h2>
+    <div id="stimulus"></div>
+    <p id="time"></p>
+
+    <p id="timesOfOrange"></p>
+    <p id="countOfOrange"></p>
+    <p id="meanOfOrange"></p>
+    <p id="sdOfOrange"></p>
+
+    <p id="timesOfPurple"></p>
+    <p id="countOfPurple"></p>
+    <p id="meanOfPurple"></p>
+    <p id="sdOfPurple"></p>
+
+    <p id="errorRate"></p>
+
+
+
+
+    <script>
+        // if true, the experiment is currently active
+        let experimentActive = false;
+
+        // if true, the stimulus is currently visible and the user should press space
+        let stimulusIsVisible = false;
+
+        // time at which the stimulus last appeared (in milliseconds, see Date.now())
+        let stimulusTimestamp;
+
+        // ID of the timeout that is scheduled to make the stimulus appear.
+        // Used to cancel tests when the experiment ends.
+        let testStimulusTimeout;
+
+        // recorded reaction times in milliseconds
+        let timesOfOrange = [];
+        let timesOfPurple = [];
+
+        let stimulusShape = '';
+        let stimulusColor = '';
+
+        let errorCounter = 0;
+
+
+        // DOM elements
+        let timeElement = document.getElementById('time');
+
+        let timeOfOrangeElement = document.getElementById('timesOfOrange');
+        let countOfOrangeElement = document.getElementById('countOfOrange');
+        let meanOfOrangeElement = document.getElementById('meanOfOrange');
+        let stdDevOfOrangeElement = document.getElementById('sdOfOrange');
+
+        let timeOfPurpleElement = document.getElementById('timesOfPurple');
+        let countOfPurpleElement = document.getElementById('countOfPurple');
+        let meanOfPurpleElement = document.getElementById('meanOfPurple');
+        let stdDevOfPurpleElement = document.getElementById('sdOfPurple');
+        let instructionElement = document.getElementById('instruction');
+
+        let stimulusElement = document.getElementById('stimulus');
+
+        let errorRateElement = document.getElementById('errorRate');
+
+
+        let testCounter = 0;
+        const maximumTests = 30;
+
+        function getMean(data) {
+            let sum = 0;
+            for (let value of data) sum += value;
+            return sum / data.length;
+        }
+
+        function getStandardDeviation(data) {
+            let mean = getMean(data);
+            let squareSum = 0;
+            for (let value of data) squareSum += (value - mean) ** 2;
+            return Math.sqrt(squareSum / data.length);
+        }
+
+        function clearResults() {
+            timeElement.textContent = '';
+
+            countOfOrangeElement.textContent = '';
+            meanOfOrangeElement.textContent = '';
+            stdDevOfOrangeElement.textContent = '';
+
+            countOfPurpleElement.textContent = '';
+            meanOfPurpleElement.textContent = '';
+            stdDevOfPurpleElement.textContent = '';
+        }
+
+        function showResultsOfOrange() {
+            let meanDeltaTime = getMean(timesOfOrange);
+            let stdDev = getStandardDeviation(timesOfOrange);
+
+            countOfOrangeElement.textContent = 'CountOrange: ' + timesOfOrange.length;
+            meanOfOrangeElement.textContent = 'MeanOrange: ' + Math.round(meanDeltaTime) + ' ms';
+            stdDevOfOrangeElement.textContent = 'SDOrange: ' + Math.round(stdDev) + ' ms';
+        }
+
+        function showResultsOfPurple() {
+            let meanDeltaTime = getMean(timesOfPurple);
+            let stdDev = getStandardDeviation(timesOfPurple);
+
+            countOfPurpleElement.textContent = 'CountPurple: ' + timesOfPurple.length;
+            meanOfPurpleElement.textContent = 'MeanPurple: ' + Math.round(meanDeltaTime) + ' ms';
+            stdDevOfPurpleElement.textContent = 'SDPurple: ' + Math.round(stdDev) + ' ms';
+        }
+
+        function setRandomSize(min, max) {
+            return Math.floor(Math.random() * (max - min + 1) + min)
+        }
+
+        function getColor() {
+            return Math.random() < 0.5 ? "orange" : "purple";
+        }
+        function setStimulusShape() {
+            let shape = '';
+            let number = Math.floor(Math.random() * 2);
+            if (number == 0) {
+                shape = 'square'
+            }
+            else {
+                shape = 'triangle'
+            }
+            return shape;
+        }
+
+
+        function setStimulus() {
+
+            stimulusElement.style = "";
+
+            const color = getColor();
+            const shape = setStimulusShape();
+            const size = setRandomSize(100, 300);
+            const stimulus = document.getElementById("stimulus");
+            stimulusShape = shape;
+            stimulusColor = color;
+
+            if (shape == 'square') {
+
+                stimulusElement.style.width = size + "px";
+                stimulusElement.style.height = size + "px";
+                stimulusElement.style.backgroundColor = color;
+
+
+            }
+            else {
+
+                stimulusElement.style.width = "0";
+                stimulusElement.style.height = "0";
+                stimulusElement.style.borderLeft = (size / 2) + "px solid transparent";
+                stimulusElement.style.borderRight = (size / 2) + "px solid transparent";
+                stimulusElement.style.borderBottom = size + "px solid " + color;
+
+            }
+
+            stimulusElement.style.margin = "50px auto";
+
+
+
+        }
+
+        function startTestTrial() {
+
+            stimulusElement.style = "";
+            stimulusIsVisible = false;
+            let timeToWaitInSeconds
+            // schedule the stimulus to appear after a random amount of time
+            if (stimulusShape == "triangle") {
+                timeToWaitInSeconds = Math.random() * 3 + 1; // 1 - 4s
+            }
+            else {
+                timeToWaitInSeconds = Math.random() * 4 + 2; // 2 - 6s
+            }
+            testStimulusTimeout = setTimeout(showStimulus, timeToWaitInSeconds * 1000);
+        }
+
+        function showStimulus() {
+            setStimulus();
+            stimulusIsVisible = true;
+            stimulusTimestamp = Date.now();
+        }
+
+        function recordStimulusReactionTime() {
+            let deltaTime = Date.now() - stimulusTimestamp;
+            if (stimulusColor == "purple") {
+                timesOfPurple.push(deltaTime);
+            }
+            else {
+                timesOfOrange.push(deltaTime);
+            }
+
+            timeElement.textContent = deltaTime + ' ms';
+
+            testCounter++;
+
+            if (testCounter >= maximumTests) {
+                stopExperiment();
+            } else {
+                startTestTrial();
+            }
+        }
+
+
+
+
+        function startExperiment() {
+            clearResults(); // clear results of any previous tests
+            errorCounter = 0;
+            testCounter = 0;
+            instructionElement.textContent = "Press space for squares, 'b' for triangles. Press 'a' to see results.";
+
+            // reset data and start tests
+            timesOfOrange = [];
+            timesOfPurple = [];
+            experimentActive = true;
+            startTestTrial();
+        }
+
+        function stopExperiment() {
+            // cancel any ongoing tests
+            clearTimeout(testStimulusTimeout);
+            stimulusIsVisible = false;
+            experimentActive = false;
+
+            // reset instruction and show results
+            instruction.textContent = 'Press space to start!';
+            showResultsOfOrange();
+            showResultsOfPurple();
+            const errorRate = Math.round((errorCounter / testCounter) * 100);
+            errorRateElement.textContent = `Fehlerrate: ${errorRate}%`;
+
+        }
+
+        window.addEventListener('keydown', (event) => {
+            if (event.key === ' ') {
+                // the user pressed the space key
+                if (!experimentActive) {
+                    // start the experiment if it wasn't active
+                    startExperiment();
+                    return;
+                }
+
+                if (stimulusIsVisible) {
+
+                    if (stimulusShape == 'triangle') {
+                        timeElement.textContent = "Fehler";
+                        errorCounter++;
+                        testCounter++;
+                        if (testCounter >= maximumTests) {
+                            stopExperiment();
+                        } else {
+                            startTestTrial();
+                        }
+                    } else {
+                        recordStimulusReactionTime();
+                    }
+
+
+                }
+            } else if (event.key === 'a') {
+                if (experimentActive) {
+                    // stop the experiment and show results
+                    stopExperiment();
+                }
+            } else if (event.key === 'b') {
+                if (experimentActive && stimulusIsVisible && stimulusShape === "triangle") {
+                    timeElement.textContent = "Uebersprungen";
+                    stimulusIsVisible = false;
+                    testCounter++;
+                    if (testCounter >= maximumTests) {
+                        stopExperiment();
+                    } else {
+                        startTestTrial();
+                    }
+                }
+            }
+
+        });
+    </script>
+</body>
+
+</html>
